@@ -49,12 +49,15 @@ def serve():
                        
                        lck.acquire()
                        response = localObj.recv(1024).decode()
-
-                       while response.lower() != 'bye':
-                           localdiction[name] = response     
+                       r1 = json.loads(response)
+                       info = response['data']['ínfo']
+                       while info.lower() != 'bye':
+                           localdiction[name] = info
                            #if client send a bye then the server disconnects 
 
                            response = localObj.recv(1024).decode()
+                           r1 = json.loads(response)
+                           info = response['data']['ínfo']
                            writetofile(localdiction)
                            diction = localdiction
                            lck.release()
