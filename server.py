@@ -6,7 +6,7 @@ import json
 
 # Global variables
 # TODO: Create a class to hold all the globals as statics
-diction = None
+diction ={}
 lck = None
 Q = queue.Queue(maxsize = 0)
 
@@ -25,7 +25,7 @@ def writetofile (dictionary):
 def serve():
     
     try:  
-           global lck
+           global lck,diction
         
        
            localdiction = diction 
@@ -34,6 +34,7 @@ def serve():
         
            print("connected to ", str(name.decode()))        
            response = localObj.recv(1024)
+           response = json.loads(response)
            # Response should have an 'operation' field. Look for it.
            if 'operation' in response:
            # If operation says 'get' process accordingly.
@@ -50,7 +51,7 @@ def serve():
                        lck.acquire()
                        response = localObj.recv(1024).decode()
                        r1 = json.loads(response)
-                       info = response['data']['ínfo']
+                       info = r1['data']['ínfo']
                        while info.lower() != 'bye':
                            localdiction[name] = info
                            #if client send a bye then the server disconnects 
@@ -86,7 +87,7 @@ def main():
         c.close ()
     except socket.error as err:
         print("server is still closing try again in 30 seconds", err) 
-        b.close ()
+
 if __name__ == "__main__":
     main ()
 
