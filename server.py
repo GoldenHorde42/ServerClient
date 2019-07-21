@@ -2,7 +2,7 @@ import sys
 import socket
 import threading
 import queue
-#import argparse
+import argparse
 import json
 
 
@@ -94,7 +94,12 @@ def main():
 
         diction = loadfromfile ()
         s = socket.socket()
-        port = int(sys.argv[1])
+        parser = argparse.ArgumentParser()
+        parser.add_argument("port", required= true,
+                            type=int)
+
+        args = parser.parse_args()
+        port = args.port
         s.bind(('',port))
         print("socket is binded to", port)
         s.listen(5)
