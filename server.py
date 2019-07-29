@@ -1,10 +1,11 @@
 import sys
+import ssl
 import socket
 import threading
 import queue
 import argparse
 import json
-
+from writer import filewriter
 
 # Global variables
 # TODO: Create a class to hold all the globals as statics
@@ -12,33 +13,20 @@ diction ={}
 lck = None
 Q = queue.Queue(maxsize = 0)
 
-
-def loadfromfile():
-    with open("clientdetails.json") as client:
-        dictionary = json.load(client)
-    client.close ()
-    return(dictionary)
-
-def writetofile (dictionary):
-    with open("clientdetails.json",'w') as client:
-        json.dump(dictionary,client)
-    client.close ()
-
 def serve():
     
     try:  
-           global lck,diction
-        
-       
-           localdiction = diction
-           print(diction)
+
+           #get client from queue
            localObj = Q.get()
-           name = localObj.recv(1024).decode ()
-        
-           print("connected to ", str(name))
+           print ('Looking for packets in ' + str(localObj.getsockname()))
+           #recieve his name,operation and data to be updated/userdata to found
            response_str = localObj.recv(1024).decode()
+
            print("received: ", response_str)
            response = json.loads(response_str)
+           name = response['name']
+           print("connected to ", response['name'])
            print("after json loading: ", response)
            # Response should have an 'operation' field. Look for it.
            if 'operation' in response:
@@ -50,9 +38,10 @@ def serve():
                    if 'name' in response['data']:
                        user_to_get = response['data']['name']
                        print('Looking for user: ', user_to_get)
-                       if user_to_get in localdiction:
-                           print('Located obj: ', localdiction[user_to_get])
-                           localObj.send(bytes(localdiction[user_to_get].encode()))
+                       a = filewriter.finduser(user_to_get)
+                       if a != "User not found":
+                           print('Located obj: ', a)
+                           localObj.send(bytes(a.encode()))
                        else:
                            print('Could not get user: ', user_to_get)
                            localObj.send(bytes('N/A'.encode()))
@@ -64,10 +53,10 @@ def serve():
                    user_data = response['data']['info']
 
                    while user_data.lower() != 'bye':
+                       user_data1 = user_data
                        print('user_data is: ', user_data)
-                       print('Operating record: ', name)
-                       localdiction[name] = user_data
-                       print(localdiction)
+                       #print('Operating record: ', name)
+
                        #if client send a bye then the server disconnects
 
                        resp_str = localObj.recv(1024).decode()
@@ -76,9 +65,8 @@ def serve():
                            break
                        r1 = json.loads(resp_str)
                        user_data = r1['data']['info']
-                       writetofile(localdiction)
-                       diction = localdiction
-                       #lck.release()
+
+                   filewriter.writetofile(name, user_data1)
                    print('Client said bye')
                else:
                    print('Invalid operation request: ', response['operation'])
@@ -89,24 +77,23 @@ def main():
     try:
 
         #argparse args(sys.argv)
-        global diction,lck
-        lck = threading.Lock ()
 
-        diction = loadfromfile ()
+        obj = filewriter ()
         s = socket.socket()
+        wrappedSocket = ssl.wrap_socket(s, ssl_version=ssl.PROTOCOL_TLSv1, ciphers="ADH-AES256-SHA")
         parser = argparse.ArgumentParser()
-        parser.add_argument("port", required= true,
-                            type=int)
+        parser.add_argument('--port',required = True)
 
         args = parser.parse_args()
-        port = args.port
-        s.bind(('',port))
+        port = int(args.port)
+        wrappedSocket.bind(('',port))
         print("socket is binded to", port)
-        s.listen(5)
+        wrappedSocket.listen(5)
         print("socket is listening")
         while True:
-            c,addr= s.accept()
-            Q.put(c)   
+            c,addr= wrappedSocket.accept()
+            Q.put(c)
+            print ('Launching thread for ' + str(addr))
             t1 = threading.Thread(target = serve)
             t1.start ()
 
